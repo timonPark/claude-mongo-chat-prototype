@@ -229,13 +229,19 @@ function handleClaudeEvent(event: ClaudeEvent, send: SendFn): void {
             console.log(`${ts()} [조회 시작]  DB 쿼리 실행 중...`);
             console.log(`             $ ${cmd}`);
             send('progress', '조회 시작 — DB 쿼리 실행 중...');
-            const dMatch = cmd.match(/-d\s+'([^']+)'/);
-            if (dMatch) {
+            // -d '...' (싱글쿼트) 또는 -d "..." (더블쿼트·이스케이프 포함) 모두 처리
+            const singleMatch = cmd.match(/-d\s+'([^']+)'/);
+            const doubleMatch = cmd.match(/-d\s+"((?:[^"\\]|\\.)*)"/);
+            const rawData = singleMatch?.[1] ?? doubleMatch?.[1]?.replace(/\\"/g, '"');
+            if (rawData) {
               try {
-                const parsed = JSON.parse(dMatch[1]);
-                send('log', JSON.stringify(parsed, null, 2));
+                const parsed = JSON.parse(rawData);
+                const display = JSON.stringify(parsed, null, 2);
+                send('log', display.length > 600 ? display.slice(0, 600) + '\n...(생략)' : display);
               } catch {
-                send('log', dMatch[1]);
+                // 변수 참조 등 JSON 파싱 불가 → 컬렉션명만 표시
+                const collMatch = rawData.match(/"collection"\s*:\s*"([^"]+)"/);
+                send('log', collMatch ? `collection: ${collMatch[1]}` : rawData.slice(0, 200));
               }
             }
           } else {
