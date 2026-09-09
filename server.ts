@@ -16,7 +16,7 @@ const DB_USER_NAME = process.env.DB_USER_NAME;
 const DB_USER_PASSWORD = process.env.DB_USER_PASSWORD;
 const COLLECTION_MAPPING_FILE = process.env.COLLECTION_MAPPING_FILE ?? './collection-mapping.md';
 const COLLECTION_INDEX_FILE = './index.md';
-const COLLECTIONS_DIR = path.resolve(__dirname, 'collections');
+const COLLECTIONS_DIR = path.resolve(import.meta.dirname, 'collections');
 
 if (!DB_HOST || !DB_DATABASE || !DB_USER_NAME || !DB_USER_PASSWORD) {
   console.error('필수 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.');
@@ -277,7 +277,7 @@ function handleClaudeEvent(event: ClaudeEvent, send: SendFn): void {
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(import.meta.dirname, 'public')));
 
 const activeJobs = new Map<string, ReturnType<typeof spawn>>();
 const queryParamsStore = new Map<string, QueryParams>();
