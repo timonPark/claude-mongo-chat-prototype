@@ -7,7 +7,7 @@ HTML 채팅 UI로 출력하는 단일 페이지 웹 애플리케이션.
 ## 파일 구조
 ```
 claude-mongo-chat/
-├── server.js              # Express 서버 + Claude CLI spawn 로직
+├── server.ts              # Express 서버 + Claude CLI spawn 로직 (TypeScript)
 ├── public/index.html      # 채팅 UI (단일 파일, 빌드 없음)
 ├── collections/           # 컬렉션별 필드 스키마 마크다운 (collections/<name>.md)
 ├── index.md               # 전체 컬렉션 목록 (UI 테이블 정보 모달 + 시스템 프롬프트에 사용)
@@ -24,7 +24,8 @@ claude-mongo-chat/
 ```bash
 npm install                                        # 최초 1회
 docker compose -f docker/docker-compose.yml up -d  # 로컬 MongoDB 기동
-node server.js                                     # 서버 실행 (http://localhost:3111)
+npm start                                          # 서버 실행 (http://localhost:3111)
+npm run typecheck                                  # 타입 검사
 ```
 
 ## Claude CLI 호출 방식

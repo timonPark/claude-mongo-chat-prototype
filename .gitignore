@@ -15,5 +15,8 @@ npm-debug.log*
 .vscode/
 .idea/
 
+# TypeScript 빌드 결과물
+dist/
+
 # 샘플 데이터 아카이브 (용량 큰 바이너리)
 data/

@@ -2,13 +2,20 @@
   "name": "claude-mongo-chat",
   "version": "1.0.0",
   "description": "자연어 MongoDB 조회 챗봇 (Claude Code CLI + mongosh)",
-  "main": "server.js",
+  "main": "server.ts",
   "scripts": {
-    "start": "node server.js"
+    "start": "tsx server.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^16.0.0",
     "express": "^4.18.0",
     "mongodb": "^7.6.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.5.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2"
   }
 }
