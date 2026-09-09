@@ -55,7 +55,74 @@ mongorestore \
   --archive=data/sampledata.archive
 ```
 
-복원 후 `sampledb` 데이터베이스에 23개 컬렉션 / 425,367건이 로드됩니다.
+복원 후 `sample_mflix`, `sample_analytics` 등 9개의 `sample_*` 데이터베이스로 로드됩니다.
+
+#### 3-1. 데이터베이스 통합 (sample_* → sampledb)
+
+mongorestore로 복원된 9개 DB를 단일 `sampledb`로 통합합니다.
+
+```bash
+mongosh "mongodb://root:<MONGO_ROOT_PASSWORD>@127.0.0.1:27017/admin"
+```
+
+mongosh 접속 후 아래 스크립트를 실행합니다.
+
+```javascript
+// sample_* 데이터베이스의 컬렉션을 sampledb로 통합
+const migrations = [
+  { src: 'sample_mflix',       colls: ['movies', 'comments', 'users', 'theaters', 'embedded_movies', 'sessions'] },
+  { src: 'sample_analytics',   colls: ['customers', 'accounts', 'transactions'] },
+  { src: 'sample_airbnb',      colls: ['listingsAndReviews'] },
+  { src: 'sample_restaurants', colls: ['restaurants', 'neighborhoods'] },
+  { src: 'sample_supplies',    colls: ['sales'] },
+  { src: 'sample_training',    colls: ['grades', 'companies', 'inspections', 'trips', 'routes', 'zips', 'posts'] },
+  { src: 'sample_geospatial',  colls: ['shipwrecks'] },
+  { src: 'sample_science',     colls: ['planets'] },
+];
+
+for (const { src, colls } of migrations) {
+  for (const coll of colls) {
+    print(`Migrating ${src}.${coll} → sampledb.${coll}`);
+    db.getSiblingDB(src).getCollection(coll).aggregate([
+      { $out: { db: 'sampledb', coll: coll } }
+    ]);
+  }
+}
+
+// sample_weatherdata는 컬렉션명이 'data'이므로 별도 처리
+db.getSiblingDB('sample_weatherdata').getCollection('data').aggregate([
+  { $out: { db: 'sampledb', coll: 'weatherdata' } }
+]);
+
+// 원본 sample_* DB 제거
+const srcDbs = ['sample_mflix','sample_analytics','sample_airbnb','sample_restaurants',
+                 'sample_supplies','sample_training','sample_geospatial','sample_science','sample_weatherdata'];
+for (const d of srcDbs) {
+  db.getSiblingDB(d).dropDatabase();
+  print(`Dropped ${d}`);
+}
+print('Done — sampledb now has all 23 collections');
+```
+
+통합 완료 후 `sampledb`에 23개 컬렉션 / 425,367건이 존재합니다.
+
+#### 3-2. 조회 전용 계정 생성
+
+애플리케이션이 사용할 읽기 전용 계정을 생성합니다.
+
+```bash
+mongosh "mongodb://root:<MONGO_ROOT_PASSWORD>@127.0.0.1:27017/admin"
+```
+
+```javascript
+db.createUser({
+  user: "chatreader",
+  pwd:  "your-readonly-password",
+  roles: [{ role: "read", db: "sampledb" }]
+});
+```
+
+생성한 계정 정보를 `.env`의 `DB_USER_NAME` / `DB_USER_PASSWORD`에 입력합니다.
 
 ### 4. 환경변수 설정
 
