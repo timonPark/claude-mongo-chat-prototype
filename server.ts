@@ -240,8 +240,14 @@ function handleClaudeEvent(event: ClaudeEvent, send: SendFn): void {
                 send('log', display.length > 600 ? display.slice(0, 600) + '\n...(생략)' : display);
               } catch {
                 // 변수 참조 등 JSON 파싱 불가 → 컬렉션명만 표시
-                const collMatch: RegExpMatchArray | null = rawData.match(/"collection"\s*:\s*"([^"]+)"/);
+                const collMatch: RegExpMatchArray | null = rawData.match(/["']collection["']\s*:\s*["']([^"']+)["']/);
                 send('log', collMatch ? `collection: ${collMatch[1]}` : rawData.slice(0, 200));
+              }
+            } else {
+              // Python 스크립트 등 -d 패턴 미검출 시 → cmd에서 컬렉션명 추출
+              const fallbackMatch: RegExpMatchArray | null = cmd.match(/["']collection["']\s*:\s*["']([^"']+)["']/);
+              if (fallbackMatch) {
+                send('log', `collection: ${fallbackMatch[1]}`);
               }
             }
           } else {
