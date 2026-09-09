@@ -1,29 +1,29 @@
 import 'dotenv/config';
-import express, { Request, Response } from 'express';
-import { spawn } from 'child_process';
-import { execSync } from 'child_process';
-import { MongoClient, ObjectId, Document, Filter, Sort } from 'mongodb';
+import express, { Request, Response, Application } from 'express';
+import { spawn, execSync, ChildProcess } from 'child_process';
+import { MongoClient, ObjectId, Document, Filter, Sort, Db, FindCursor, WithId } from 'mongodb';
+import type { Server } from 'http';
 import fs from 'fs';
 import path from 'path';
 
 // ── 환경 변수 ──────────────────────────────────────────────────────────────────
 
-const PORT = process.env.PORT ?? '3111';
-const DB_HOST = process.env.DB_HOST;
-const DB_PORT = process.env.DB_PORT ?? '27017';
-const DB_DATABASE = process.env.DB_DATABASE;
-const DB_USER_NAME = process.env.DB_USER_NAME;
-const DB_USER_PASSWORD = process.env.DB_USER_PASSWORD;
-const COLLECTION_MAPPING_FILE = process.env.COLLECTION_MAPPING_FILE ?? './collection-mapping.md';
-const COLLECTION_INDEX_FILE = './index.md';
-const COLLECTIONS_DIR = path.resolve(import.meta.dirname, 'collections');
+const PORT: string = process.env.PORT ?? '3111';
+const DB_HOST: string | undefined = process.env.DB_HOST;
+const DB_PORT: string = process.env.DB_PORT ?? '27017';
+const DB_DATABASE: string | undefined = process.env.DB_DATABASE;
+const DB_USER_NAME: string | undefined = process.env.DB_USER_NAME;
+const DB_USER_PASSWORD: string | undefined = process.env.DB_USER_PASSWORD;
+const COLLECTION_MAPPING_FILE: string = process.env.COLLECTION_MAPPING_FILE ?? './collection-mapping.md';
+const COLLECTION_INDEX_FILE: string = './index.md';
+const COLLECTIONS_DIR: string = path.resolve(import.meta.dirname, 'collections');
 
 if (!DB_HOST || !DB_DATABASE || !DB_USER_NAME || !DB_USER_PASSWORD) {
   console.error('필수 환경 변수가 설정되지 않았습니다. .env 파일을 확인하세요.');
   process.exit(1);
 }
 
-const MONGO_URI = `mongodb://${DB_USER_NAME}:${DB_USER_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_DATABASE}?authSource=admin`;
+const MONGO_URI: string = `mongodb://${DB_USER_NAME}:${DB_USER_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_DATABASE}?authSource=admin`;
 
 // ── 타입 정의 ──────────────────────────────────────────────────────────────────
 
@@ -104,12 +104,12 @@ type ClaudeEvent =
 
 // ── 컬렉션 인덱스 로드 ─────────────────────────────────────────────────────────
 
-let collectionIndex = '';
-let collectionUpdatedAt = '';
+let collectionIndex: string = '';
+let collectionUpdatedAt: string = '';
 
 try {
   collectionIndex = fs.readFileSync(path.resolve(COLLECTION_INDEX_FILE), 'utf-8');
-  const match = collectionIndex.match(/최종 업데이트[：:]\s*(.+)/);
+  const match: RegExpMatchArray | null = collectionIndex.match(/최종 업데이트[：:]\s*(.+)/);
   if (match) collectionUpdatedAt = match[1].trim();
 } catch {
   console.warn(`컬렉션 인덱스 파일을 읽을 수 없습니다: ${COLLECTION_INDEX_FILE}`);
@@ -122,8 +122,8 @@ try {
 
 function loadCollectionIndex(): string {
   try {
-    const content = fs.readFileSync(path.resolve(COLLECTION_INDEX_FILE), 'utf-8');
-    const match = content.match(/최종 업데이트[：:]\s*(.+)/);
+    const content: string = fs.readFileSync(path.resolve(COLLECTION_INDEX_FILE), 'utf-8');
+    const match: RegExpMatchArray | null = content.match(/최종 업데이트[：:]\s*(.+)/);
     if (match) collectionUpdatedAt = match[1].trim();
     return content;
   } catch {
@@ -132,10 +132,10 @@ function loadCollectionIndex(): string {
 }
 
 function buildCollectionSummary(): string {
-  const lines = loadCollectionIndex().split('\n');
+  const lines: string[] = loadCollectionIndex().split('\n');
   const result: string[] = [];
   for (const line of lines) {
-    const match = line.match(/\|\s*`([^`]+)`\s*\|\s*([^|]+)\|/);
+    const match: RegExpMatchArray | null = line.match(/\|\s*`([^`]+)`\s*\|\s*([^|]+)\|/);
     if (match) result.push(`${match[1].trim()} — ${match[2].trim()}`);
   }
   return result.join('\n');
@@ -168,20 +168,20 @@ curl -s -X POST http://localhost:${PORT}/db-query \\
 
 // ── MongoDB 클라이언트 ─────────────────────────────────────────────────────────
 
-const mongoClient = new MongoClient(MONGO_URI, { maxPoolSize: 5 });
+const mongoClient: MongoClient = new MongoClient(MONGO_URI, { maxPoolSize: 5 });
 
 // ── 유틸 ──────────────────────────────────────────────────────────────────────
 
-const ts = (): string => new Date().toTimeString().slice(0, 8);
+const ts: () => string = () => new Date().toTimeString().slice(0, 8);
 
-const DB_TIMEOUT_MS = 30_000;
-const DB_TIMEOUT_MSG = 'DB 응답시간 초과 Max 30초';
+const DB_TIMEOUT_MS: number = 30_000;
+const DB_TIMEOUT_MSG: string = 'DB 응답시간 초과 Max 30초';
 
 function isTimeoutError(err: unknown): boolean {
   return (err as { code?: number }).code === 50; // MongoDB MaxTimeMSExpired
 }
 
-const OID_REGEX = /^[0-9a-fA-F]{24}$/;
+const OID_REGEX: RegExp = /^[0-9a-fA-F]{24}$/;
 
 function convertOid(obj: unknown): unknown {
   if (Array.isArray(obj)) return obj.map(convertOid);
@@ -196,7 +196,7 @@ function convertOid(obj: unknown): unknown {
 }
 
 function applyProjectionSecurity(projection: Projection): void {
-  const isInclusion = Object.values(projection).some(v => v === 1 || v === true);
+  const isInclusion: boolean = Object.values(projection).some(v => v === 1 || v === true);
   if (isInclusion) {
     delete projection.passHash;
     delete projection.password;
@@ -216,12 +216,12 @@ function handleClaudeEvent(event: ClaudeEvent, send: SendFn): void {
       break;
 
     case 'assistant': {
-      const contents = event.message?.content ?? [];
+      const contents: ClaudeToolUseBlock[] = event.message?.content ?? [];
       for (const block of contents) {
         if (block.type === 'tool_use' && block.name === 'Bash') {
-          const cmd = block.input?.command?.trim() ?? '';
+          const cmd: string = block.input?.command?.trim() ?? '';
           if (cmd.startsWith('cat')) {
-            const file = cmd.split('/').pop();
+            const file: string | undefined = cmd.split('/').pop();
             console.log(`${ts()} [필드 확인]  ${file} 스키마 읽는 중...`);
             send('progress', `필드 확인 — ${file} 스키마 읽는 중...`);
             send('log', `$ cat ${file}`);
@@ -230,17 +230,17 @@ function handleClaudeEvent(event: ClaudeEvent, send: SendFn): void {
             console.log(`             $ ${cmd}`);
             send('progress', '조회 시작 — DB 쿼리 실행 중...');
             // -d '...' (싱글쿼트) 또는 -d "..." (더블쿼트·이스케이프 포함) 모두 처리
-            const singleMatch = cmd.match(/-d\s+'([^']+)'/);
-            const doubleMatch = cmd.match(/-d\s+"((?:[^"\\]|\\.)*)"/);
-            const rawData = singleMatch?.[1] ?? doubleMatch?.[1]?.replace(/\\"/g, '"');
+            const singleMatch: RegExpMatchArray | null = cmd.match(/-d\s+'([^']+)'/);
+            const doubleMatch: RegExpMatchArray | null = cmd.match(/-d\s+"((?:[^"\\]|\\.)*)"/);
+            const rawData: string | undefined = singleMatch?.[1] ?? doubleMatch?.[1]?.replace(/\\"/g, '"');
             if (rawData) {
               try {
-                const parsed = JSON.parse(rawData);
-                const display = JSON.stringify(parsed, null, 2);
+                const parsed: unknown = JSON.parse(rawData);
+                const display: string = JSON.stringify(parsed, null, 2);
                 send('log', display.length > 600 ? display.slice(0, 600) + '\n...(생략)' : display);
               } catch {
                 // 변수 참조 등 JSON 파싱 불가 → 컬렉션명만 표시
-                const collMatch = rawData.match(/"collection"\s*:\s*"([^"]+)"/);
+                const collMatch: RegExpMatchArray | null = rawData.match(/"collection"\s*:\s*"([^"]+)"/);
                 send('log', collMatch ? `collection: ${collMatch[1]}` : rawData.slice(0, 200));
               }
             }
@@ -255,8 +255,8 @@ function handleClaudeEvent(event: ClaudeEvent, send: SendFn): void {
     }
 
     case 'tool_result': {
-      const contents = Array.isArray(event.content) ? event.content : [];
-      const text = contents.map(b => b.content ?? b.text ?? '').join('').trim();
+      const contents: ClaudeToolResultContent[] = Array.isArray(event.content) ? event.content : [];
+      const text: string = contents.map(b => b.content ?? b.text ?? '').join('').trim();
       if (text) {
         console.log(`${ts()} [조회 완료]  결과 수신 (${text.length}자)`);
         console.log(`${ts()} [데이터 가공] 응답 정리 중...`);
@@ -281,12 +281,12 @@ function handleClaudeEvent(event: ClaudeEvent, send: SendFn): void {
 
 // ── Express 앱 ────────────────────────────────────────────────────────────────
 
-const app = express();
+const app: Application = express();
 app.use(express.json());
 app.use(express.static(path.join(import.meta.dirname, 'public')));
 
-const activeJobs = new Map<string, ReturnType<typeof spawn>>();
-const queryParamsStore = new Map<string, QueryParams>();
+const activeJobs: Map<string, ChildProcess> = new Map();
+const queryParamsStore: Map<string, QueryParams> = new Map();
 
 // ── 엔드포인트 ────────────────────────────────────────────────────────────────
 
@@ -313,7 +313,7 @@ app.post('/db-query', async (req: Request<object, object, DbQueryBody>, res: Res
     return res.status(400).json({ error: 'collection 필드가 필요합니다.' });
   }
 
-  const targetDb = database ?? DB_DATABASE!;
+  const targetDb: string = database ?? DB_DATABASE!;
   if (requestId && collection) {
     queryParamsStore.set(requestId, {
       database: targetDb,
@@ -327,13 +327,13 @@ app.post('/db-query', async (req: Request<object, object, DbQueryBody>, res: Res
   applyProjectionSecurity(projection);
 
   try {
-    const db = mongoClient.db(targetDb);
-    let cursor = db
+    const db: Db = mongoClient.db(targetDb);
+    let cursor: FindCursor<WithId<Document>> = db
       .collection(collection)
       .find(convertOid(filter) as Filter<Document>, { projection: convertOid(projection) as Document })
       .maxTimeMS(DB_TIMEOUT_MS);
     if (sort) cursor = cursor.sort(sort);
-    const docs = await cursor.limit(limit).toArray();
+    const docs: WithId<Document>[] = await cursor.limit(limit).toArray();
     if (docs.length === 0) {
       return res.json({
         count: 0,
@@ -354,7 +354,7 @@ app.post('/db-query', async (req: Request<object, object, DbQueryBody>, res: Res
 
 app.post('/db-export', async (req: Request<object, object, DbExportBody>, res: Response) => {
   const { requestId } = req.body;
-  const params = queryParamsStore.get(requestId);
+  const params: QueryParams | undefined = queryParamsStore.get(requestId);
   if (!params) {
     return res.status(404).json({ error: '조회 파라미터를 찾을 수 없습니다. 먼저 검색을 실행해 주세요.' });
   }
@@ -364,13 +364,13 @@ app.post('/db-export', async (req: Request<object, object, DbExportBody>, res: R
   applyProjectionSecurity(safeProjection);
 
   try {
-    const db = mongoClient.db(exportDb ?? DB_DATABASE!);
-    let cursor = db
+    const db: Db = mongoClient.db(exportDb ?? DB_DATABASE!);
+    let cursor: FindCursor<WithId<Document>> = db
       .collection(collection)
       .find(convertOid(filter) as Filter<Document>, { projection: convertOid(safeProjection) as Document })
       .maxTimeMS(DB_TIMEOUT_MS);
     if (sort) cursor = cursor.sort(sort);
-    const docs = await cursor.toArray();
+    const docs: WithId<Document>[] = await cursor.toArray();
     console.log(`${ts()} [엑셀 내보내기] ${collection} ${docs.length}건`);
     return res.json({ count: docs.length, data: docs, collection });
   } catch (err) {
@@ -385,7 +385,7 @@ app.post('/db-export', async (req: Request<object, object, DbExportBody>, res: R
 
 app.post('/chat/cancel', (req: Request<object, object, CancelBody>, res: Response) => {
   const { requestId } = req.body;
-  const child = activeJobs.get(requestId);
+  const child: ChildProcess | undefined = activeJobs.get(requestId);
   if (child) {
     child.kill();
     activeJobs.delete(requestId);
@@ -407,7 +407,7 @@ app.post('/chat', (req: Request<object, object, ChatBody>, res: Response) => {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
 
-  const send: SendFn = (type, msg) => {
+  const send: SendFn = (type: SseEventType, msg: string): void => {
     res.write(`data: ${JSON.stringify({ type, message: msg })}\n\n`);
   };
 
@@ -415,7 +415,7 @@ app.post('/chat', (req: Request<object, object, ChatBody>, res: Response) => {
   console.log(`[요청] ${message.trim()}`);
   console.log(`${'─'.repeat(60)}`);
 
-  const child = spawn(
+  const child: ChildProcess = spawn(
     'claude',
     [
       '-p', message.trim(),
@@ -430,19 +430,19 @@ app.post('/chat', (req: Request<object, object, ChatBody>, res: Response) => {
 
   if (requestId) activeJobs.set(requestId, child);
 
-  let lineBuffer = '';
-  let finalResult = '';
-  let stderr = '';
+  let lineBuffer: string = '';
+  let finalResult: string = '';
+  let stderr: string = '';
 
   child.stdout!.on('data', (data: Buffer) => {
     lineBuffer += data.toString();
-    const lines = lineBuffer.split('\n');
+    const lines: string[] = lineBuffer.split('\n');
     lineBuffer = lines.pop() ?? '';
 
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
-        const event = JSON.parse(line) as ClaudeEvent;
+        const event: ClaudeEvent = JSON.parse(line) as ClaudeEvent;
         handleClaudeEvent(event, send);
         if (event.type === 'result' && event.subtype === 'success') {
           finalResult = event.result ?? '';
@@ -480,9 +480,9 @@ app.post('/chat', (req: Request<object, object, ChatBody>, res: Response) => {
 
 function killPort(port: string): void {
   try {
-    const pids = execSync(`lsof -ti :${port}`).toString().trim();
+    const pids: string = execSync(`lsof -ti :${port}`).toString().trim();
     if (pids) {
-      pids.split('\n').forEach(pid => {
+      pids.split('\n').forEach((pid: string) => {
         try { process.kill(Number(pid), 'SIGKILL'); } catch { /* 무시 */ }
       });
       console.log(`포트 ${port} 점유 프로세스 종료 완료`);
@@ -492,17 +492,17 @@ function killPort(port: string): void {
 
 mongoClient
   .connect()
-  .then(() => {
+  .then((): void => {
     console.log(`MongoDB 연결 완료: ${DB_HOST}:${DB_PORT}/${DB_DATABASE}`);
-    const server = app.listen(Number(PORT), () => {
+    const server: Server = app.listen(Number(PORT), (): void => {
       console.log(`서버 실행 중: http://localhost:${PORT}`);
     });
-    server.on('error', (err: NodeJS.ErrnoException) => {
+    server.on('error', (err: NodeJS.ErrnoException): void => {
       if (err.code === 'EADDRINUSE') {
         console.log(`포트 ${PORT} 사용 중 — 기존 프로세스 종료 후 재시작...`);
         killPort(PORT);
-        setTimeout(() => {
-          server.listen(Number(PORT), () => {
+        setTimeout((): void => {
+          server.listen(Number(PORT), (): void => {
             console.log(`서버 실행 중: http://localhost:${PORT}`);
           });
         }, 500);
@@ -512,18 +512,18 @@ mongoClient
       }
     });
   })
-  .catch((err: Error) => {
+  .catch((err: Error): void => {
     console.error('MongoDB 연결 실패:', err.message);
     process.exit(1);
   });
 
-process.on('SIGINT', async () => {
+process.on('SIGINT', async (): Promise<void> => {
   await mongoClient.close();
   console.log('MongoDB 커넥션 종료');
   process.exit(0);
 });
 
-process.on('SIGTERM', async () => {
+process.on('SIGTERM', async (): Promise<void> => {
   await mongoClient.close();
   console.log('MongoDB 커넥션 종료');
   process.exit(0);
