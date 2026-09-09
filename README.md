@@ -46,8 +46,23 @@ npm install
 ```bash
 # 컨테이너 시작
 docker compose -f docker/docker-compose.yml up -d
+```
 
-# 샘플 데이터 복원 (최초 1회)
+#### 3-0. 샘플 데이터 다운로드 (최초 1회)
+
+[MongoDB 공식 샘플 데이터](https://www.mongodb.com/ko-kr/docs/manual/sample-data/load-sample-data-local/)를 `data/` 폴더에 다운로드합니다.
+
+```bash
+mkdir -p data
+curl https://atlas-education.s3.amazonaws.com/sampledata.archive \
+  -o data/sampledata.archive
+```
+
+> 파일 크기가 약 380MB이므로 다운로드에 시간이 걸릴 수 있습니다.
+
+#### 3-1. 샘플 데이터 복원
+
+```bash
 mongorestore \
   --host 127.0.0.1 --port 27017 \
   -u root -p <MONGO_ROOT_PASSWORD> \
@@ -57,7 +72,7 @@ mongorestore \
 
 복원 후 `sample_mflix`, `sample_analytics` 등 9개의 `sample_*` 데이터베이스로 로드됩니다.
 
-#### 3-1. 데이터베이스 통합 (sample_* → sampledb)
+#### 3-2. 데이터베이스 통합 (sample_* → sampledb)
 
 mongorestore로 복원된 9개 DB를 단일 `sampledb`로 통합합니다.
 
@@ -106,7 +121,7 @@ print('Done — sampledb now has all 23 collections');
 
 통합 완료 후 `sampledb`에 23개 컬렉션 / 425,367건이 존재합니다.
 
-#### 3-2. 조회 전용 계정 생성
+#### 3-3. 조회 전용 계정 생성
 
 애플리케이션이 사용할 읽기 전용 계정을 생성합니다.
 
