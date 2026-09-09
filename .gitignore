@@ -1,0 +1,19 @@
+# 의존성
+node_modules/
+
+# 환경변수 (DB 접속정보 포함 — 절대 커밋 금지)
+.env
+
+# macOS
+.DS_Store
+
+# 로그
+*.log
+npm-debug.log*
+
+# 에디터
+.vscode/
+.idea/
+
+# 샘플 데이터 아카이브 (용량 큰 바이너리)
+data/
