@@ -50,7 +50,7 @@ docker compose -f docker/docker-compose.yml up -d
 # 샘플 데이터 복원 (최초 1회)
 mongorestore \
   --host 127.0.0.1 --port 27017 \
-  -u root -p qDVacHFxc3Tg4A3jH7in \
+  -u root -p <MONGO_ROOT_PASSWORD> \
   --authenticationDatabase admin \
   --archive=data/sampledata.archive
 ```
@@ -68,11 +68,11 @@ cp .env.example .env
 ```env
 PORT=3111
 
-DB_HOST=127.0.0.1
+DB_HOST=your-mongodb-host
 DB_PORT=27017
-DB_DATABASE=sampledb
-DB_USER_NAME=chatreader
-DB_USER_PASSWORD=R3ad0nly!Sample
+DB_DATABASE=your-database-name
+DB_USER_NAME=your-username
+DB_USER_PASSWORD=your-password
 
 COLLECTION_MAPPING_FILE=./collection-mapping.md
 ```
