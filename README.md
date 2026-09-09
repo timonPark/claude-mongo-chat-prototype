@@ -74,13 +74,29 @@ mongorestore \
 
 #### 3-2. 데이터베이스 통합 (sample_* → sampledb)
 
-mongorestore로 복원된 9개 DB를 단일 `sampledb`로 통합합니다.
+MongoDB Atlas 샘플 데이터는 도메인별로 9개 데이터베이스에 분산되어 있습니다.
+
+| 원본 데이터베이스 | 포함 컬렉션 |
+|----------------|-----------|
+| `sample_mflix` | movies, comments, users, theaters, embedded_movies, sessions |
+| `sample_analytics` | customers, accounts, transactions |
+| `sample_airbnb` | listingsAndReviews |
+| `sample_restaurants` | restaurants, neighborhoods |
+| `sample_supplies` | sales |
+| `sample_training` | grades, companies, inspections, trips, routes, zips, posts |
+| `sample_geospatial` | shipwrecks |
+| `sample_science` | planets |
+| `sample_weatherdata` | weatherdata |
+
+이 애플리케이션은 단일 데이터베이스(`sampledb`)에 접속하도록 설계되어 있으므로, 위 9개 DB의 컬렉션을 `sampledb` 하나로 통합해야 합니다.
+
+먼저 mongosh로 접속합니다.
 
 ```bash
 mongosh "mongodb://root:<MONGO_ROOT_PASSWORD>@127.0.0.1:27017/admin"
 ```
 
-mongosh 접속 후 아래 스크립트를 실행합니다.
+접속 후 아래 스크립트를 실행합니다.
 
 ```javascript
 // sample_* 데이터베이스의 컬렉션을 sampledb로 통합
